@@ -1,0 +1,56 @@
+.xtab {
+  font-family: sans-serif;
+}
+
+.xtab label {
+  display: block;
+  padding-bottom: 5pt;
+}
+
+.xtab-dims-list, .xtab-vals-list {
+  border: 1pt solid black;
+  padding: 5pt;
+  margin: 5pt;
+
+  border-radius: 5px;
+  -moz-border-radius: 5px;
+  -webkit-border-radius: 5px;
+}
+
+.xtab-dims-list>div {
+  margin: 2pt;
+  padding: 3pt;
+  display: inline-block;
+  background-color: #F16B39;
+  color: #fff;
+
+  border-radius: 5px;
+  -moz-border-radius: 5px;
+  -webkit-border-radius: 5px;
+}
+
+.xtab-vals-list>div {
+  margin: 2pt;
+  padding: 3pt;
+  display: inline-block;
+  background-color: #A4AF69;
+  color: #fff;
+
+  border-radius: 5px;
+  -moz-border-radius: 5px;
+  -webkit-border-radius: 5px;
+}
+
+.xtab-dims, .xtab-filters {
+  background-color: #F16B39;
+  color: #fff;
+}
+
+.xtab-vals {
+  background-color: #A4AF69;
+  color: #fff;
+}
+
+.xtab-data {
+  min-width: 100%;
+}

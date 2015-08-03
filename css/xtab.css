@@ -53,4 +53,23 @@
 
 .xtab-data {
   min-width: 100%;
+
+}
+
+.xtab-h ul {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.xtab-dims ul {
+  list-style-type: none;
+}
+
+.xtab-h li {
+  display: inline-block;
+  padding-left: 5pt;
+}
+
+.xtab-h li>ul {
+  display:block;
 }

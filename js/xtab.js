@@ -6,17 +6,6 @@
             values: []
         };
 
-    function XTab( element, options ) {
-        this.element = element;
-
-        this.options = $.extend( {}, defaults, options) ;
-
-        this._defaults = defaults;
-        this._name = pluginName;
-
-        this.init();
-    }
-
     var dragging;
 
     function getXtab(el) {
@@ -84,41 +73,40 @@
       xtab.refreshData();
     }
 
-    function buildDLL(xtab, data, dims, level, filter) {
-      if (level >= dims.length) {
-        return null;
+    function dimLabelsFromTree(dt) {
+      if (!dt) {
+        return '';
       }
 
-      var dl = xtab.getDimValues(dims[level], data);
-      dl.sort();
-      var html = '';
+      var html = '<ul>';
 
-      $.each(dl, function () {
-        html += '<li>' + this
+      $.each(dt, function () {
+        html += '<li>';
 
-
-        filter[dims[level]] = this;
-        var cl = buildDLL(xtab, data.filterByObject(filter), dims, level+1, filter);
-        delete filter[dims[level]];
-
-        if (cl) {
-          html += '<ul>' + cl + "</ul>";
+        if (typeof this == 'string' || this instanceof String) {
+          html += this;
+        } else {
+          html += this.name + dimLabelsFromTree(this.children);
         }
-        html += '</li>'
       });
+
+      html += '</ul>';
 
       return html;
     }
 
-    function buildDimLabels(xtab, data, dims) {
-      var dlr = $('<ul></ul>');
+    function countLeaves(dt) {
+      var lc = 0;
 
-      var dll = buildDLL(xtab, data, dims, 0, {});
-      if (dll) {
-        $(dlr).append(dll);
-      }
+      $.each(dt, function () {
+        if (typeof this == 'string' || this instanceof String) {
+          lc++;
+        } else {
+          lc += this.leafcount = countLeaves(this.children);
+        }
+      });
 
-      return dlr;
+      return lc;
     }
 
     function buildDTW(xtab, data, dims, level, filter) {
@@ -134,7 +122,12 @@
         filter[dims[level]] = this;
         var cl = buildDTW(xtab, data.filterByObject(filter), dims, level+1, filter);
         delete filter[dims[level]];
-        dta.push({name:this, children:cl});
+        if (cl) {
+          dta.push({name:this, children:cl});
+        } else {
+          dta.push(this);
+        }
+
       });
 
       return dta;
@@ -162,11 +155,95 @@
       });
     }
 
+    function XTabCalc(data, h_dims, hdt, v_dims, vdt, value) {
+      this._data = data;
+      this._h_dims = h_dims;
+      this._hdt = hdt;
+      this._v_dims = v_dims;
+      this._vdt = vdt;
+      this._value = value;
+      this.cols = countLeaves(hdt);
+      this.rows = countLeaves(vdt);
+      var cb = this.cols * this.rows * 4;
+      this.values = new Int32Array(new ArrayBuffer(cb));
+    }
+
+    XTabCalc.prototype = {
+      recalc: function () {
+        this.visitAll();
+      },
+
+      visitAll: function () {
+        this._visitRow({}, this._data, this._vdt, 0, 0);
+      },
+
+      _visitRow: function (filter, data, dt, level, row) {
+        var xtc = this;
+
+        $.each(dt, function () {
+          if (typeof this == 'string' || this instanceof String) {
+            filter[xtc._v_dims[level]] = this;
+            xtc._visitCols(filter, data.filterByObject(filter),
+                xtc._hdt, 0, row, 0);
+            delete filter[xtc._v_dims[level]];
+
+            row++;
+          } else {
+            filter[xtc._v_dims[level]] = this.name;
+            row = xtc._visitRow(filter, data.filterByObject(filter),
+                this.children, level+1, row);
+            delete filter[xtc._v_dims[level]];
+          }
+        });
+
+        return row;
+      },
+
+      _visitCols: function (filter, data, dt, level, row, col) {
+        var xtc = this;
+
+        $.each(dt, function () {
+          if (typeof this == 'string' || this instanceof String) {
+            // console.log('leaf: row: ' + row + ' col: ' + col + ' filter: ' + JSON.stringify(filter) + ' len: ' + data.length);
+            var dim = xtc._h_dims[level];
+            var val = this;
+            $.each(data.filter(function (el) {
+              return !(dim in el) || el[dim] == val;
+            }), function () {
+              if (xtc._value in this) {
+                xtc.values[row*xtc.rows + col] += this[xtc._value];
+              }
+            });
+            col++;
+          } else {
+            filter[xtc._h_dims[level]] = this.name;
+            col = xtc._visitCols(filter, data.filterByObject(filter),
+                this.children, level+1, row, col);
+            delete filter[xtc._h_dims[level]];
+          }
+        });
+
+        return col;
+      }
+    };
+
+    function XTab(element, options) {
+        this.element = element;
+
+        this.options = $.extend( {}, defaults, options) ;
+
+        this._defaults = defaults;
+        this._name = pluginName;
+
+        this.init();
+    }
+
     XTab.prototype = {
-        init: function() {
+        init: function () {
           var xt = this;
           $(this.element).append('<div class="xtab-dims-list"><label>dimensions</label></div><div class="xtab-vals-list"><label>values</label></div>');
           $(this.element).append('<div class="xtab-filters"><label>filters</label></div>');
+          $(this.element).append('<div class="xtab-message">&nbsp;</div>');
           $(this.element).append('<table class="xtab-data"><tbody><tr><td class="xtab-corner"><button name="xtabReset">reset</button></td><td class="xtab-dims xtab-h">&nbsp;</td></tr><tr><td class="xtab-dims xtab-v">&nbsp;</td><td class="xtab-vals">&nbsp;</td></tr></tbody></table>');
 
           $.each(this.options.dimensions, function () {
@@ -191,12 +268,16 @@
           this._filters = [];
           this._h_dims = [];
           this._v_dims = [];
+          delete this._value
+          delete this._xc;
+
+          this.clearMessage();
 
           $('.xtab-filters div', this.element).remove();
           this.refreshData();
         },
 
-        getFilteredData: function() {
+        getFilteredData: function () {
           var data = this.options.data;
           var fvd = {};
           $('.xtab-filters div', this.element).each(function () {
@@ -290,14 +371,47 @@
         refreshData: function () {
           var data = this.getFilteredData();
 
-          var hdt = buildDimTree(this, data, this._h_dims);
-          console.log(hdt);
+          this._hdt = buildDimTree(this, data, this._h_dims);
+          $('.xtab-dims.xtab-h', this.element).html(dimLabelsFromTree(this._hdt));
 
-          var hdl = buildDimLabels(this, data, this._h_dims);
-          $('.xtab-dims.xtab-h', this.element).html(hdl);
+          this._vdt = buildDimTree(this, data, this._v_dims);
+          $('.xtab-dims.xtab-v', this.element).html(dimLabelsFromTree(this._vdt));
 
-          var vdl = buildDimLabels(this, data, this._v_dims);
-          $('.xtab-dims.xtab-v', this.element).html(vdl);
+          if (!this._hdt || !this._vdt) {
+            $('.xtab-vals').html('<i>' + (this._value ? this._value : '&nbsp') + '</i>');
+            return;
+          }
+
+          if (!this._value) {
+            return;
+          }
+
+          var xc = this._xc = new XTabCalc(this.getFilteredData(), this._h_dims, this._hdt,
+              this._v_dims, this._vdt, this._value);
+
+          this.setMessage('recalculating...');
+          xc.recalc();
+          this.clearMessage();
+
+          $('.xtab-vals', this.element).empty();
+          for (var row = 0; row < xc.rows; row++) {
+            var html = '<div>';
+            for (var col = 0; col < xc.cols; col++) {
+              var v = xc.values[row * xc.cols + col];
+              html += '<span>' + (v ? v : '&nbsp;') + '</span>';
+            }
+            html += '</div>';
+
+            $('.xtab-vals', this.element).append(html);
+          }
+        },
+
+        setMessage: function (msg) {
+          $('.xtab-message', this.element).text(msg);
+        },
+
+        clearMessage: function () {
+          $('.xtab-message', this.element).text('');
         }
     };
 

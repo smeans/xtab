@@ -1,3 +1,4 @@
+/* global styles */
 .xtab {
   font-family: sans-serif;
 }
@@ -7,6 +8,7 @@
   padding-bottom: 5pt;
 }
 
+/* list styles */
 .xtab-dims-list, .xtab-vals-list {
   border: 1pt solid black;
   padding: 5pt;
@@ -46,28 +48,107 @@
   color: #fff;
 }
 
-.xtab-vals {
+.xtab-vals-scroll {
+  position: relative;
   background-color: #A4AF69;
   color: #fff;
+  width: 90%;
+  overflow: hidden;
 }
 
+/* data table styles */
 .xtab-data {
-  min-width: 100%;
-
+  width: 100%;
+  min-height: 600px;
+  height: 600px;
+  margin: 0;
+  padding: 0;
 }
 
-.xtab-h ul {
+.xtab-data-top {
+  width: 100%;
+  min-height: 40px;
+  background-color: #B0BBBF;
+}
+
+.xtab-data-top>div {
   display: inline-block;
-  white-space: nowrap;
+  vertical-align: top;
+  min-height: 40px;
+  height: 100%;
 }
 
+.xtab-data-bottom {
+  width: 100%;
+  height: 100%;
+}
+
+.xtab-data-bottom>div {
+  display: inline-block;
+  vertical-align: top;
+  height: 100%;
+}
+
+.xtab-vals {
+  position: absolute;
+}
+
+.xtab-vals div {
+  position: absolute;
+  text-align: right;
+  background-color: #B0BBBF;
+}
+
+.xtab-corner {
+  width: 10%;
+  height: 100%;
+}
+
+div.xtab-dims.xtab-h {
+  height: 100%;
+  width: 90%;
+  overflow-x: scroll;
+  overflow-y: hidden;
+}
+
+div.xtab-dims.xtab-v {
+  width: 10%;
+  overflow-x: hidden;
+  overflow-y: scroll;
+}
+
+.xtab-dims::-webkit-scrollbar {
+    -webkit-appearance: none;
+}
+
+.xtab-dims::-webkit-scrollbar:vertical {
+    width: 11px;
+}
+
+.xtab-dims::-webkit-scrollbar:horizontal {
+    height: 11px;
+}
+
+.xtab-dims::-webkit-scrollbar-thumb {
+    border-radius: 4px;
+    border: 1px solid white; /* should match background, can't be transparent */
+    background-color: rgba(0, 0, 0, .5);
+}
+
+.xtab-dims::-webkit-scrollbar-track {
+    background-color: #fff;
+    border-radius: 8px;
+}
 .xtab-dims ul {
   list-style-type: none;
+  white-space: nowrap;
+  padding: 0px 0px 0px 10pt;
 }
 
 .xtab-h li {
   display: inline-block;
   padding-left: 5pt;
+  min-width: 30pt;
 }
 
 .xtab-h li>ul {

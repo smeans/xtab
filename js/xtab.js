@@ -20,7 +20,7 @@
       var p = $(dragging).parent();
 
       return (($(p).hasClass('xtab-dims-list') && $(e.target).closest('.xtab-dims, .xtab-filters').length)
-          || ($(p).hasClass('xtab-vals-list') && $(e.target).closest('.xtab-vals').length));
+          || ($(p).hasClass('xtab-vals-list') && $(e.target).closest('.xtab-vals-scroll').length));
     }
 
     function dragOver(e) {
@@ -45,7 +45,7 @@
         xtab.addVDim($(dragging).text());
       }
 
-      if ($(p).hasClass('xtab-vals-list') && $(e.target).closest('.xtab-vals').length) {
+      if ($(p).hasClass('xtab-vals-list') && $(e.target).closest('.xtab-vals-scroll').length) {
         xtab.setValue($(dragging).text());
       }
 
@@ -73,26 +73,43 @@
       xtab.refreshData();
     }
 
+    function nameToLabel(name) {
+      return name == '' ? '(blank)' : name;
+    }
+
+    function scrollData(e) {
+      var xtab = getXtab(e.target);
+      var xd = $(e.target).closest('.xtab-data');
+      var dx = $('.xtab-h', xd).scrollLeft();
+      var dy = $('.xtab-v', xd).scrollTop();
+
+      $('.xtab-vals', xd).css({top:-dy, left:-dx});
+    }
+
     function dimLabelsFromTree(dt) {
       if (!dt) {
         return '';
       }
 
-      var html = '<ul>';
+      var html = '';
+      var isLeaf = true;
 
       $.each(dt, function () {
         html += '<li>';
 
         if (typeof this == 'string' || this instanceof String) {
-          html += this;
+          html += nameToLabel(this);
         } else {
-          html += this.name + dimLabelsFromTree(this.children);
+          html += nameToLabel(this.name) + dimLabelsFromTree(this.children);
+          isLeaf = false;
         }
       });
 
-      html += '</ul>';
-
-      return html;
+      if (isLeaf) {
+        return '<ul class="xtab-leaf">' + html +'</ul>';
+      } else {
+        return '<ul>' + html + '</ul>';
+      }
     }
 
     function countLeaves(dt) {
@@ -134,7 +151,8 @@
     }
 
     function buildDimTree(xtab, data, dims) {
-      return buildDTW(xtab, data, dims, 0, {});
+      var dt = buildDTW(xtab, data, dims, 0, {});
+      return dt ? dt : [];
     }
 
     Array.prototype.filterByObject = function (o) {
@@ -204,14 +222,14 @@
 
         $.each(dt, function () {
           if (typeof this == 'string' || this instanceof String) {
-            // console.log('leaf: row: ' + row + ' col: ' + col + ' filter: ' + JSON.stringify(filter) + ' len: ' + data.length);
             var dim = xtc._h_dims[level];
             var val = this;
-            $.each(data.filter(function (el) {
+            var ds = data.filter(function (el) {
               return !(dim in el) || el[dim] == val;
-            }), function () {
+            });
+            $.each(ds, function () {
               if (xtc._value in this) {
-                xtc.values[row*xtc.rows + col] += this[xtc._value];
+                xtc.values[row*xtc.cols + col] += parseInt(this[xtc._value]);
               }
             });
             col++;
@@ -244,7 +262,7 @@
           $(this.element).append('<div class="xtab-dims-list"><label>dimensions</label></div><div class="xtab-vals-list"><label>values</label></div>');
           $(this.element).append('<div class="xtab-filters"><label>filters</label></div>');
           $(this.element).append('<div class="xtab-message">&nbsp;</div>');
-          $(this.element).append('<table class="xtab-data"><tbody><tr><td class="xtab-corner"><button name="xtabReset">reset</button></td><td class="xtab-dims xtab-h">&nbsp;</td></tr><tr><td class="xtab-dims xtab-v">&nbsp;</td><td class="xtab-vals">&nbsp;</td></tr></tbody></table>');
+          $(this.element).append('<div class="xtab-data"><div class="xtab-data-top"><div class="xtab-corner"><button name="xtabReset">reset</button></div><div class="xtab-dims xtab-h">&nbsp;</div></div><div class="xtab-data-bottom"><div class="xtab-dims xtab-v">&nbsp;</div><div class="xtab-vals-scroll"><div class="xtab-vals">&nbsp;</div></div></div></div>');
 
           $.each(this.options.dimensions, function () {
             $('.xtab-dims-list', xt.element).append('<div draggable="true">' + this + '</div>');
@@ -256,6 +274,7 @@
           $(this.element).on('dragstart', dragStart);
           $(this.element).on('dragover', dragOver);
           $(this.element).on('drop', drop);
+          $('.xtab-data .xtab-dims', this.element).on('scroll', scrollData);
           $('button[name=xtabReset]', this.element).click(resetXtab);
 
           $('.xtab-filters', this.element).click(removeFilter);
@@ -299,6 +318,8 @@
               dl.push(data[i][dim]);
             }
           }
+
+          dl.sort();
 
           return dl;
         },
@@ -369,6 +390,12 @@
         },
 
         refreshData: function () {
+          if (this._refreshing) {
+            return;
+          }
+          this._refreshing = true;
+
+          this.setMessage('recalculating...');
           var data = this.getFilteredData();
 
           this._hdt = buildDimTree(this, data, this._h_dims);
@@ -377,33 +404,61 @@
           this._vdt = buildDimTree(this, data, this._v_dims);
           $('.xtab-dims.xtab-v', this.element).html(dimLabelsFromTree(this._vdt));
 
-          if (!this._hdt || !this._vdt) {
+          $('.xtab-vals', this.element).empty();
+
+          if (!this._hdt.length || !this._vdt.length) {
             $('.xtab-vals').html('<i>' + (this._value ? this._value : '&nbsp') + '</i>');
+            this.clearMessage();
+            this._refreshing = false;
             return;
           }
 
           if (!this._value) {
+            this.clearMessage();
+            this._refreshing = false;
             return;
           }
 
           var xc = this._xc = new XTabCalc(this.getFilteredData(), this._h_dims, this._hdt,
               this._v_dims, this._vdt, this._value);
 
-          this.setMessage('recalculating...');
           xc.recalc();
-          this.clearMessage();
 
-          $('.xtab-vals', this.element).empty();
+          var cla = $('.xtab-dims.xtab-h .xtab-leaf li');
+          var cxp = $(cla[0]).closest('.xtab-dims').offset().left;
+          var coa = [];
+          var cow = []
+          $.each(cla, function () {
+            coa.push($(this).offset().left-cxp);
+            cow.push($(this).width());
+          });
+
+          var rla = $('.xtab-dims.xtab-v .xtab-leaf li');
+          var ryp = $(rla[0]).closest('.xtab-dims').offset().top;
+          var ry = $(rla[0]).offset().top-ryp;
+          var dy = $(rla[0]).height();
+
           for (var row = 0; row < xc.rows; row++) {
-            var html = '<div>';
             for (var col = 0; col < xc.cols; col++) {
               var v = xc.values[row * xc.cols + col];
-              html += '<span>' + (v ? v : '&nbsp;') + '</span>';
+              if (v) {
+                var html = '<div>' + v + '</div>';
+                var css= {
+                  top: dy * row + ry,
+                  left: coa[col],
+                  width: cow[col]
+                };
+                $(html).css(css).appendTo('.xtab-vals', this.element);
+              }
             }
-            html += '</div>';
-
-            $('.xtab-vals', this.element).append(html);
           }
+
+          $('.xtab-vals', this.element).width(coa[xc.cols-1]+cow[xc.cols-1])
+              .height(dy*xc.rows);
+
+
+          this.clearMessage();
+          this._refreshing = false;
         },
 
         setMessage: function (msg) {

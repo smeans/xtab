@@ -31,7 +31,7 @@
   -webkit-border-radius: 5px;
 }
 
-.xtab-vals-list>div {
+.xtab-vals-list>div, .xtab-val-leaf>li {
   margin: 2pt;
   padding: 3pt;
   display: inline-block;

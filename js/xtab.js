@@ -46,9 +46,8 @@
       }
 
       if ($(p).hasClass('xtab-vals-list') && $(e.target).closest('.xtab-vals-scroll').length) {
-        xtab.setValue($(dragging).text());
+        xtab.addValue($(dragging).text());
       }
-
 
       dragging = null;
     }
@@ -66,11 +65,18 @@
       getXtab(e.target).refreshData();
     }
 
-    function resetXtab(e) {
+    function valClicked(e) {
       var xtab = getXtab(e.target);
 
-      xtab.reset();
-      xtab.refreshData();
+      var vc = $(e.target).data('coords');
+      if (vc) {
+        console.log(vc[0] + ', ' + vc[1] + '(' + vc[2] + ') clicked');
+        hf = filtersForLeaf(xtab._h_dims, xtab._hdt, vc[0]);
+        vf = filtersForLeaf(xtab._v_dims, xtab._vdt, vc[1]);
+
+        console.log(hf);
+        console.log(vf);
+      }
     }
 
     function nameToLabel(name) {
@@ -86,7 +92,18 @@
       $('.xtab-vals', xd).css({top:-dy, left:-dx});
     }
 
-    function dimLabelsFromTree(dt) {
+    function valLabels(values) {
+      html = '<ul class="xtab-leaf xtab-val-leaf">';
+      $.each(values, function () {
+         html += '<li>' + nameToLabel(this) + '</li>';
+      });
+
+      html += '</ul>';
+
+      return html;
+    }
+
+    function dimLabelsFromTree(dt, values) {
       if (!dt) {
         return '';
       }
@@ -98,9 +115,14 @@
         html += '<li>';
 
         if (typeof this == 'string' || this instanceof String) {
-          html += nameToLabel(this);
+          if (!values || values.length <= 1) {
+            html += nameToLabel(this);
+          } else {
+            html += nameToLabel(this) + valLabels(values);
+            isLeaf = false;
+          }
         } else {
-          html += nameToLabel(this.name) + dimLabelsFromTree(this.children);
+          html += nameToLabel(this.name) + dimLabelsFromTree(this.children, values);
           isLeaf = false;
         }
       });
@@ -110,6 +132,36 @@
       } else {
         return '<ul>' + html + '</ul>';
       }
+    }
+
+    function filtersForLeaf(dims, dt, li) {
+      var lc = 0;
+      var fd = {};
+
+      function fflw(dl, dim) {
+        for (var i = 0; i < dl.length; i++) {
+          if (typeof dl[i] == 'string' || dl[i] instanceof String) {
+            if (lc == li) {
+              fd[dims[dim]] = dl[i];
+
+              return true;
+            }
+            lc++;
+          } else {
+            if (fflw(dl[i].children, dim + 1)) {
+              fd[dims[dim]] = dl[i].name;
+
+              return true
+            };
+          }
+        }
+
+        return false;
+      }
+
+      fflw(dt, 0);
+
+      return fd;
     }
 
     function countLeaves(dt) {
@@ -182,7 +234,8 @@
       this._value = value;
       this.cols = countLeaves(hdt);
       this.rows = countLeaves(vdt);
-      var cb = this.cols * this.rows * 4;
+      this.vals = this._value.length;
+      var cb = this.cols * this.rows * this.vals * 4;
       this.values = new Int32Array(new ArrayBuffer(cb));
     }
 
@@ -228,8 +281,12 @@
               return !(dim in el) || el[dim] == val;
             });
             $.each(ds, function () {
-              if (xtc._value in this) {
-                xtc.values[row*xtc.cols + col] += parseInt(this[xtc._value]);
+              for (var i = 0; i < xtc.vals; i++) {
+                var vn = xtc._value[i];
+
+                if (vn in this) {
+                  xtc.values[row*xtc.cols*xtc.vals + col*xtc.vals+i] += parseInt(this[vn]);
+                }
               }
             });
             col++;
@@ -262,7 +319,7 @@
           $(this.element).append('<div class="xtab-dims-list"><label>dimensions</label></div><div class="xtab-vals-list"><label>values</label></div>');
           $(this.element).append('<div class="xtab-filters"><label>filters</label></div>');
           $(this.element).append('<div class="xtab-message">&nbsp;</div>');
-          $(this.element).append('<div class="xtab-data"><div class="xtab-data-top"><div class="xtab-corner"><button name="xtabReset">reset</button></div><div class="xtab-dims xtab-h">&nbsp;</div></div><div class="xtab-data-bottom"><div class="xtab-dims xtab-v">&nbsp;</div><div class="xtab-vals-scroll"><div class="xtab-vals">&nbsp;</div></div></div></div>');
+          $(this.element).append('<div class="xtab-data"><div class="xtab-data-top"><div class="xtab-corner"></div><div class="xtab-dims xtab-h">&nbsp;</div></div><div class="xtab-data-bottom"><div class="xtab-dims xtab-v">&nbsp;</div><div class="xtab-vals-scroll"><div class="xtab-vals">&nbsp;</div></div></div></div>');
 
           $.each(this.options.dimensions, function () {
             $('.xtab-dims-list', xt.element).append('<div draggable="true">' + this + '</div>');
@@ -275,7 +332,7 @@
           $(this.element).on('dragover', dragOver);
           $(this.element).on('drop', drop);
           $('.xtab-data .xtab-dims', this.element).on('scroll', scrollData);
-          $('button[name=xtabReset]', this.element).click(resetXtab);
+          $('.xtab-vals').click(valClicked);
 
           $('.xtab-filters', this.element).click(removeFilter);
           $('.xtab-filters', this.element).change(refreshData);
@@ -296,10 +353,51 @@
           this.refreshData();
         },
 
+        save: function () {
+          var fa = [];
+
+          $('.xtab-filters div[name]', this.element).each(function () {
+            var dim = $(this).attr('name');
+            fa.push({name: dim, values:$('.selstrip', this).selStrip('values')});
+          });
+          return {filters:fa, h_dims: this._h_dims, v_dims:this._v_dims,
+            value: this._value};
+        },
+
+        saveCallback: function (callback) {
+          callback(this.save());
+        },
+
+        load: function (sd) {
+          this.reset();
+
+          var xtab = this;
+
+          for (var i = 0; i < sd.filters.length; i++) {
+            var f = sd.filters[i];
+
+            xtab.addFilter(f.name, f.values);
+          }
+
+          $.each(sd.h_dims, function () {
+            xtab.addHDim(this);
+          });
+
+          $.each(sd.v_dims, function () {
+            xtab.addVDim(this);
+          });
+
+          $.each(sd.value, function () {
+            xtab.addValue(this);
+          });
+
+          xtab.refreshData();
+        },
+
         getFilteredData: function () {
           var data = this.options.data;
           var fvd = {};
-          $('.xtab-filters div', this.element).each(function () {
+          $('.xtab-filters div[name]', this.element).each(function () {
             var dim = $(this).attr('name');
             fvd[dim] = $('.selstrip', this).selStrip('values');
           });
@@ -333,14 +431,14 @@
           return this.getDimValues(dim);
         },
 
-        addFilter: function (dim) {
+        addFilter: function (dim, selected) {
           if (this._filters.indexOf(dim) > -1) {
             return;
           }
 
           this._filters.push(dim);
           var fd = $('<div name="' + dim + '"><label><i class="fa fa-times-circle"></i>&nbsp;' + dim + '</label><div class="selstrip"></div>');
-          $('.selstrip', fd).selStrip({values:this.getDimValues(dim)});
+          $('.selstrip', fd).selStrip({values:this.getDimValues(dim), selected:selected});
 
           $('.xtab-filters div', this.element).selStrip('readonly', true);
           $('.xtab-filters', this.element).append(fd);
@@ -383,10 +481,20 @@
           this.refreshData();
         },
 
-        setValue: function (val) {
-          this._value = val;
+        addValue: function (val) {
+          if (this._value) {
+            if (this._value.indexOf(val) < 0) {
+              this._value.push(val);
+            }
+          } else {
+            this._value = [val];
+          }
 
           this.refreshData();
+        },
+
+        getCellFilters: function(col, row) {
+
         },
 
         refreshData: function () {
@@ -395,11 +503,16 @@
           }
           this._refreshing = true;
 
+          var xtab = this;
+          setTimeout(function () { xtab.refreshWorker() }, 1);
+        },
+
+        refreshWorker: function () {
           this.setMessage('recalculating...');
           var data = this.getFilteredData();
 
           this._hdt = buildDimTree(this, data, this._h_dims);
-          $('.xtab-dims.xtab-h', this.element).html(dimLabelsFromTree(this._hdt));
+          $('.xtab-dims.xtab-h', this.element).html(dimLabelsFromTree(this._hdt, this._value));
 
           this._vdt = buildDimTree(this, data, this._v_dims);
           $('.xtab-dims.xtab-v', this.element).html(dimLabelsFromTree(this._vdt));
@@ -407,7 +520,7 @@
           $('.xtab-vals', this.element).empty();
 
           if (!this._hdt.length || !this._vdt.length) {
-            $('.xtab-vals').html('<i>' + (this._value ? this._value : '&nbsp') + '</i>');
+            $('.xtab-vals').html('<i>' + (this._value ? this._value.join() : '&nbsp') + '</i>');
             this.clearMessage();
             this._refreshing = false;
             return;
@@ -440,15 +553,17 @@
 
           for (var row = 0; row < xc.rows; row++) {
             for (var col = 0; col < xc.cols; col++) {
-              var v = xc.values[row * xc.cols + col];
-              if (v) {
-                var html = '<div>' + v + '</div>';
-                var css= {
-                  top: dy * row + ry,
-                  left: coa[col],
-                  width: cow[col]
-                };
-                $(html).css(css).appendTo('.xtab-vals', this.element);
+              for (var val = 0; val < xc.vals; val++) {
+                var v = xc.values[row * xc.cols * xc.vals + (col * xc.vals + val)];
+                if (v) {
+                  var html = '<div>' + v + '</div>';
+                  var css= {
+                    top: dy * row + ry,
+                    left: coa[col * xc.vals + val],
+                    width: cow[col * xc.vals + val]
+                  };
+                  $(html).data('coords', [col, row, xc._value[val]]).css(css).appendTo('.xtab-vals', this.element);
+                }
               }
             }
           }
@@ -470,12 +585,22 @@
         }
     };
 
-    $.fn[pluginName] = function ( options ) {
+    $.fn[pluginName] = function ( methodOrOptions ) {
+        var methods = XTab.prototype;
+        var args = arguments;
+
         return this.each(function () {
+          if ( methods[methodOrOptions] ) {
+              var xtab = getXtab(this);
+              return methods[methodOrOptions].apply( xtab, Array.prototype.slice.call( args, 1 ));
+          } else if ( typeof methodOrOptions === 'object' || ! methodOrOptions ) {
             if (!$.data(this, "plugin_" + pluginName)) {
                 $.data(this, "plugin_" + pluginName,
-                new XTab( this, options ));
+                new XTab( this, methodOrOptions ));
             }
+          } else {
+              $.error( 'Method ' +  methodOrOptions + ' does not exist on jQuery.tooltip' );
+          }
         });
     };
 

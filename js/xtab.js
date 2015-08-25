@@ -548,8 +548,12 @@
 
           var rla = $('.xtab-dims.xtab-v .xtab-leaf li');
           var ryp = $(rla[0]).closest('.xtab-dims').offset().top;
-          var ry = $(rla[0]).offset().top-ryp;
-          var dy = $(rla[0]).height();
+          var roa = [];
+          var roh = [];
+          $.each(rla, function () {
+            roa.push($(this).offset().top-ryp);
+            roh.push($(this).height());
+          });
 
           for (var row = 0; row < xc.rows; row++) {
             for (var col = 0; col < xc.cols; col++) {
@@ -558,7 +562,7 @@
                 if (v) {
                   var html = '<div>' + v + '</div>';
                   var css= {
-                    top: dy * row + ry,
+                    top: roa[row],
                     left: coa[col * xc.vals + val],
                     width: cow[col * xc.vals + val]
                   };
@@ -569,7 +573,7 @@
           }
 
           $('.xtab-vals', this.element).width(coa[xc.cols-1]+cow[xc.cols-1])
-              .height(dy*xc.rows);
+              .height(roa[xc.rows-1]+roh[xc.rows-1]);
 
 
           this.clearMessage();

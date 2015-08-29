@@ -3,7 +3,10 @@
         defaults = {
             data: [],
             dimensions: [],
-            values: []
+            values: [],
+            hideZeros: true,
+            dimZeros: false,
+            showGrid: false
         };
 
     var dragging;
@@ -555,25 +558,50 @@
             roh.push($(this).height());
           });
 
-          for (var row = 0; row < xc.rows; row++) {
+          var tdx = coa[xc.cols-1]+cow[xc.cols-1];
+          var tdy = roa[xc.rows-1]+roh[xc.rows-1];
+
+          var lastParentNode;
+          var grc;
+
+          for (var row = 0; row < xc.rows; row++, grc++) {
+            if (rla[row].parentNode != lastParentNode) {
+              grc = 0;
+              lastParentNode = rla[row].parentNode;
+            }
+
+            if (this.options.showGrid && grc % 2) {
+              var html = '<div class="xtab-grid">&nbsp;</div>';
+              var css = {
+                top: roa[row],
+                left: 0,
+                height: roh[row]
+              };
+              $(html).css(css).appendTo('.xtab-vals', this.element);
+            }
             for (var col = 0; col < xc.cols; col++) {
               for (var val = 0; val < xc.vals; val++) {
                 var v = xc.values[row * xc.cols * xc.vals + (col * xc.vals + val)];
-                if (v) {
-                  var html = '<div>' + v + '</div>';
-                  var css= {
-                    top: roa[row],
-                    left: coa[col * xc.vals + val],
-                    width: cow[col * xc.vals + val]
-                  };
-                  $(html).data('coords', [col, row, xc._value[val]]).css(css).appendTo('.xtab-vals', this.element);
+
+                if (this.options.hideZeros && !v) {
+                  continue;
                 }
+
+                var html = '<div>' + v + '</div>';
+                var css = {
+                  top: roa[row],
+                  left: coa[col * xc.vals + val],
+                  width: cow[col * xc.vals + val]
+                };
+                if (!v && this.options.dimZeros) {
+                  css['opacity'] = .7;
+                }
+                $(html).data('coords', [col, row, xc._value[val]]).css(css).appendTo('.xtab-vals', this.element);
               }
             }
           }
 
-          $('.xtab-vals', this.element).width(coa[xc.cols-1]+cow[xc.cols-1])
-              .height(roa[xc.rows-1]+roh[xc.rows-1]);
+          $('.xtab-vals', this.element).width(tdx).height(tdy);
 
 
           this.clearMessage();

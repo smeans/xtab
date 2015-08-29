@@ -228,6 +228,16 @@
       });
     }
 
+    function repeatString(pattern, count) {
+        if (count < 1) return '';
+        var result = '';
+        while (count > 1) {
+            if (count & 1) result += pattern;
+            count >>= 1, pattern += pattern;
+        }
+        return result + pattern;
+    }
+
     function XTabCalc(data, h_dims, hdt, v_dims, vdt, value) {
       this._data = data;
       this._h_dims = h_dims;
@@ -302,6 +312,64 @@
         });
 
         return col;
+      },
+
+      exportCsv: function () {
+        var xtc = this;
+
+        var hd = this._h_dims;
+        var vd = this._v_dims;
+        var v = this._value;
+
+        var ha = [];
+        for (var i = 0; i < hd.length; i++) {
+          ha.push(repeatString('\t', vd.length-1));
+        }
+
+        function exportHDim(dt, level) {
+          var cc = 0;
+
+          $.each(dt, function () {
+            if (typeof this == 'string' || this instanceof String) {
+              ha[level] += '\t' + this;
+              cc++;
+            } else {
+              ha[level] += '\t' + this.name;
+              var scc = exportHDim(this.children, level+1);
+              ha[level] += repeatString('\t', scc-1);
+              cc += scc;
+            }
+          });
+
+          return cc;
+        }
+
+        exportHDim(this._hdt, 0);
+
+        var row = 0;
+
+        function exportVDim(dt, level, prefix) {
+          $.each(dt, function () {
+            if (typeof this == 'string' || this instanceof String) {
+              var vc = xtc._value.length;
+              var si = xtc.cols * vc * row;
+              var rs = prefix + '\t="' + this + '"';
+              for (var i = 0; i < xtc.cols * vc; i++) {
+                rs += '\t' + xtc.values[si + i];
+              }
+
+              ha.push(rs);
+              row += 1;
+              // !!!LATER!!! values go here
+            } else {
+              exportVDim(this.children, level+1, prefix + (prefix == '' ? '="' + this.name + '"' : '\t' + '="' + this.name + '"'));
+            }
+          });
+        }
+
+        exportVDim(this._vdt, 0, '');
+
+        return ha.join('\n');
       }
     };
 
@@ -496,8 +564,28 @@
           this.refreshData();
         },
 
-        getCellFilters: function(col, row) {
+        exportCsv: function (callback) {
+          if (!this._xc || !callback) {
+            return;
+          }
 
+          var css = '';
+
+          $('.xtab-filters div[name]', this.element).each(function () {
+            if (css == '') {
+              css = 'filters\n';
+            }
+            var dim = $(this).attr('name');
+            css += dim + ':\t' + $('.selstrip', this).selStrip('values').join('\t') + '\n';
+          });
+
+          if (css != '') {
+            css += '\ndata\n';
+          }
+
+          css += this._xc.exportCsv();
+
+          callback(css);
         },
 
         refreshData: function () {

@@ -558,8 +558,8 @@
             roh.push($(this).height());
           });
 
-          var tdx = coa[xc.cols-1]+cow[xc.cols-1];
-          var tdy = roa[xc.rows-1]+roh[xc.rows-1];
+          var tdx = coa[coa.length-1]+cow[cow.length-1];
+          var tdy = roa[roa.length-1]+roh[roh.length-1];
 
           var lastParentNode;
           var grc;
@@ -575,6 +575,7 @@
               var css = {
                 top: roa[row],
                 left: 0,
+                width: tdx,
                 height: roh[row]
               };
               $(html).css(css).appendTo('.xtab-vals', this.element);

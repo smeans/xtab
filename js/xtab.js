@@ -326,16 +326,26 @@
           ha.push(repeatString('\t', vd.length-1));
         }
 
-        function exportHDim(dt, level) {
+        if (this._value.length > 1) {
+          ha.push(repeatString('\t', vd.length-1));
+        }
+
+        function exportHDim(dt, level, value) {
           var cc = 0;
 
           $.each(dt, function () {
             if (typeof this == 'string' || this instanceof String) {
               ha[level] += '\t' + this;
-              cc++;
+              if (value) {
+                var vl = exportHDim(value, level+1);
+                ha[level] += repeatString('\t', vl-1);
+                cc += vl;
+              } else {
+                cc++;
+              }
             } else {
               ha[level] += '\t' + this.name;
-              var scc = exportHDim(this.children, level+1);
+              var scc = exportHDim(this.children, level+1, value);
               ha[level] += repeatString('\t', scc-1);
               cc += scc;
             }
@@ -344,7 +354,7 @@
           return cc;
         }
 
-        exportHDim(this._hdt, 0);
+        exportHDim(this._hdt, 0, this._value.length == 1 ? false : this._value);
 
         var row = 0;
 
@@ -353,7 +363,13 @@
             if (typeof this == 'string' || this instanceof String) {
               var vc = xtc._value.length;
               var si = xtc.cols * vc * row;
-              var rs = prefix + '\t="' + this + '"';
+              var rs = prefix;
+
+              if (rs != '') {
+                rs += '\t';
+              }
+
+              rs += '="' + this + '"';
               for (var i = 0; i < xtc.cols * vc; i++) {
                 rs += '\t' + xtc.values[si + i];
               }
@@ -581,6 +597,10 @@
 
           if (css != '') {
             css += '\ndata\n';
+          }
+
+          if (this._value.length == 1) {
+            css += 'value:\t' + this._value[0] + '\n';
           }
 
           css += this._xc.exportCsv();

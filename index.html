@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>xtab demo</title>
+    <link rel="stylesheet" href="./src/xtab.css" />
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 1rem;
+      }
+      h1 {
+        font-size: 1.25rem;
+      }
+      .toolbar {
+        margin: 0.5rem 0;
+      }
+      #export-output {
+        width: 100%;
+        height: 8rem;
+        margin-top: 0.5rem;
+        font-family: monospace;
+      }
+      .data-config {
+        margin: 1rem 0;
+        display: flex;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+      }
+      .data-config .data-input,
+      .data-config .field-config {
+        flex: 1 1 20rem;
+        min-width: 18rem;
+      }
+      #data-input {
+        width: 100%;
+        height: 14rem;
+        font-family: monospace;
+        font-size: 0.8rem;
+        box-sizing: border-box;
+      }
+      #data-error {
+        color: #b00020;
+        font-size: 0.85rem;
+        min-height: 1.2rem;
+        margin: 0.25rem 0;
+      }
+      .field-config table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      .field-config th,
+      .field-config td {
+        border: 1px solid #ccc;
+        padding: 0.25rem 0.5rem;
+        text-align: left;
+        font-size: 0.85rem;
+      }
+      .field-config th {
+        background: #f3f3f3;
+      }
+      .field-config td.field-name {
+        font-family: monospace;
+      }
+      .field-config td.radio-cell {
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>xtab &mdash; crosstab / pivot demo</h1>
+    <p>
+      Drag dimension chips into the horizontal / vertical / filter zones and value
+      chips into the grid area. Then explore.
+    </p>
+
+    <div class="data-config">
+      <div class="data-input">
+        <label for="data-input"><strong>JSON data</strong> (an array of row objects)</label>
+        <textarea id="data-input" spellcheck="false"></textarea>
+        <div id="data-error">&nbsp;</div>
+      </div>
+      <div class="field-config">
+        <strong>Field configuration</strong>
+        <table>
+          <thead>
+            <tr>
+              <th>Field</th>
+              <th>Ignore</th>
+              <th>Dimension</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody id="field-config-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="xtab"></div>
+
+    <div class="toolbar">
+      <button id="export" type="button">Export TSV</button>
+      <button id="reset" type="button">Reset</button>
+    </div>
+    <textarea id="export-output" placeholder="Export output appears here..." readonly></textarea>
+
+    <script type="module" src="./demo/main.js"></script>
+  </body>
+</html>

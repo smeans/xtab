@@ -11,7 +11,7 @@
 import { filterByObject, uniqueValues } from './data.js';
 import { buildDimTree, filtersForLeaf } from './tree.js';
 import { XtabCalc } from './calc.js';
-import { dimLabelsFromTree } from './render.js';
+import { dimLabelsFromTree, fieldLabel } from './render.js';
 import { FilterStrip } from './filter-strip.js';
 
 const DEFAULTS = {
@@ -59,11 +59,17 @@ export class Xtab {
 
     const dimsList = el.querySelector('.xtab-dims-list');
     for (const dim of this.options.dimensions) {
-      dimsList.insertAdjacentHTML('beforeend', `<div draggable="true">${dim}</div>`);
+      dimsList.insertAdjacentHTML(
+        'beforeend',
+        `<div draggable="true" data-name="${dim}">${fieldLabel(dim)}</div>`,
+      );
     }
     const valsList = el.querySelector('.xtab-vals-list');
     for (const value of this.options.values) {
-      valsList.insertAdjacentHTML('beforeend', `<div draggable="true">${value}</div>`);
+      valsList.insertAdjacentHTML(
+        'beforeend',
+        `<div draggable="true" data-name="${value}">${fieldLabel(value)}</div>`,
+      );
     }
 
     el.addEventListener('dragstart', (e) => this._onDragStart(e));
@@ -106,7 +112,7 @@ export class Xtab {
     const dragged = this._dragging;
     const source = dragged?.parentElement;
     if (!source) return;
-    const name = dragged.textContent;
+    const name = dragged.getAttribute('data-name') ?? dragged.textContent;
 
     if (source.classList.contains('xtab-dims-list')) {
       if (e.target.closest('.xtab-filters')) this.addFilter(name);
@@ -204,7 +210,7 @@ export class Xtab {
     const holder = document.createElement('div');
     holder.setAttribute('data-dim', dim);
     holder.innerHTML =
-      `<label><span class="xtab-filter-remove" title="remove">\u00d7</span>&nbsp;${dim}</label>` +
+      `<label><span class="xtab-filter-remove" title="remove">\u00d7</span>&nbsp;${fieldLabel(dim)}</label>` +
       `<div class="xtab-selstrip-host"></div>`;
 
     const host = holder.querySelector('.xtab-selstrip-host');
@@ -301,7 +307,7 @@ export class Xtab {
     valsEl.innerHTML = '';
 
     if (!this._hTree.length || !this._vTree.length) {
-      valsEl.innerHTML = `<i>${this._value ? this._value.join() : '&nbsp;'}</i>`;
+      valsEl.innerHTML = `<i>${this._value ? this._value.map(fieldLabel).join() : '&nbsp;'}</i>`;
       this.clearMessage();
       this._refreshing = false;
       return;

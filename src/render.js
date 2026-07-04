@@ -7,6 +7,14 @@ export function nameToLabel(name) {
   return name === '' ? '(blank)' : String(name);
 }
 
+/**
+ * Human label for a raw JSON property (field) name: Title_Snake_Case becomes a
+ * space-separated label for display. The raw name is kept elsewhere for identity.
+ */
+export function fieldLabel(name) {
+  return String(name).replace(/_/g, ' ');
+}
+
 /** Escape a string for safe insertion as HTML text content. */
 export function escapeHtml(value) {
   return String(value)
@@ -23,7 +31,7 @@ const isLeaf = (node) => typeof node === 'string' || node instanceof String;
 export function valLabels(values) {
   let html = '<ul class="xtab-leaf xtab-val-leaf">';
   for (const value of values) {
-    html += '<li>' + escapeHtml(nameToLabel(value)) + '</li>';
+    html += '<li>' + escapeHtml(fieldLabel(value)) + '</li>';
   }
   html += '</ul>';
   return html;

@@ -165,9 +165,17 @@ function onDataChanged() {
 
 dataInput.addEventListener('input', onDataChanged);
 
-document.querySelector('#export').addEventListener('click', () => {
-  const out = document.querySelector('#export-output');
-  out.value = xtab ? xtab.exportCsv() : '';
+document.querySelector('#export').addEventListener('click', async () => {
+  if (!xtab) return;
+  const tsv = xtab.exportCsv();
+  try {
+    await navigator.clipboard.writeText(tsv);
+    // eslint-disable-next-line no-alert
+    alert('Copied TSV to clipboard.');
+  } catch (err) {
+    // eslint-disable-next-line no-alert
+    alert(`Could not copy to clipboard: ${err.message}`);
+  }
 });
 
 document.querySelector('#reset').addEventListener('click', () => xtab && xtab.reset());

@@ -58,8 +58,14 @@ function readFieldConfig() {
     const field = row.getAttribute('data-field');
     const checked = row.querySelector('input[type="radio"]:checked');
     const status = checked ? checked.value : 'ignore';
-    if (status === 'dimension') dims.push(field);
-    else if (status === 'value') vals.push(field);
+    if (status === 'dimension') {
+      dims.push(field);
+    } else if (status === 'value') {
+      const type = row.querySelector('.type-cell select').value;
+      // Emit a plain string for the default type so the demo also exercises the
+      // legacy string form; use the object form when a specific type is chosen.
+      vals.push(type === 'default' ? field : { field, type });
+    }
   });
   return { dimensions: dims, values: vals };
 }
@@ -93,13 +99,47 @@ function buildFieldConfig(fields, dimSet, valSet) {
       input.name = `field-${field}`;
       input.value = option;
       input.checked = option === status;
-      input.addEventListener('change', rebuildFromConfig);
+      input.addEventListener('change', () => {
+        syncTypeCell(tr);
+        rebuildFromConfig();
+      });
       td.appendChild(input);
       tr.appendChild(td);
     }
 
+    // Type dropdown — only meaningful (and enabled) when "Value" is selected.
+    const typeTd = document.createElement('td');
+    typeTd.className = 'type-cell';
+    const select = document.createElement('select');
+    for (const [value, label] of [
+      ['default', 'default'],
+      ['integer', 'integer'],
+      ['currency', 'currency'],
+    ]) {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = label;
+      select.appendChild(opt);
+    }
+    select.addEventListener('change', rebuildFromConfig);
+    typeTd.appendChild(select);
+    tr.appendChild(typeTd);
+
+    syncTypeCell(tr);
+
     fieldConfigBody.appendChild(tr);
   }
+}
+
+/**
+ * Enable the type dropdown only when the row's "Value" radio is selected.
+ * @param {HTMLTableRowElement} row
+ */
+function syncTypeCell(row) {
+  const checked = row.querySelector('input[type="radio"]:checked');
+  const isValue = checked && checked.value === 'value';
+  const select = row.querySelector('.type-cell select');
+  select.disabled = !isValue;
 }
 
 /**
@@ -121,7 +161,9 @@ function buildXtab(data) {
   // Seed a starting layout so the grid shows something immediately.
   if (dims[0]) xtab.addVDim(dims[0]);
   if (dims[1]) xtab.addHDim(dims[1]);
-  if (vals[0]) xtab.addValue(vals[0]);
+  // `vals[0]` may be a string or a { field, type } object; addValue wants the
+  // field name.
+  if (vals[0]) xtab.addValue(typeof vals[0] === 'object' ? vals[0].field : vals[0]);
 }
 
 /** Rebuild the Xtab when the field configuration changes. */

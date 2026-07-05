@@ -11,7 +11,7 @@
 import { filterByObject, uniqueValues } from './data.js';
 import { buildDimTree, filtersForLeaf } from './tree.js';
 import { XtabCalc } from './calc.js';
-import { dimLabelsFromTree, fieldLabel } from './render.js';
+import { dimLabelsFromTree, fieldLabel, formatValue, normalizeValueSpec } from './render.js';
 import { FilterStrip } from './filter-strip.js';
 
 const DEFAULTS = {
@@ -34,6 +34,15 @@ export class Xtab {
 
     this._dragging = null;
     this._filterStrips = new Map(); // dim -> FilterStrip
+
+    // Map of value field name -> display type ('currency' | 'integer' | undefined).
+    // Populated from the (possibly object-valued) `values` initializer so that
+    // the rest of the pipeline can keep dealing in plain field-name strings.
+    this._valueTypes = new Map();
+    for (const spec of this.options.values) {
+      const { field, type } = normalizeValueSpec(spec);
+      this._valueTypes.set(field, type);
+    }
 
     this.init();
   }
@@ -66,9 +75,10 @@ export class Xtab {
     }
     const valsList = el.querySelector('.xtab-vals-list');
     for (const value of this.options.values) {
+      const { field } = normalizeValueSpec(value);
       valsList.insertAdjacentHTML(
         'beforeend',
-        `<div draggable="true" data-name="${value}">${fieldLabel(value)}</div>`,
+        `<div draggable="true" data-name="${field}">${fieldLabel(field)}</div>`,
       );
     }
 
@@ -390,7 +400,7 @@ export class Xtab {
           if (this.options.hideZeros && !v) continue;
 
           const cell = document.createElement('div');
-          cell.textContent = String(v);
+          cell.textContent = formatValue(v, this._valueTypes.get(this._value[val]));
           Object.assign(cell.style, {
             top: `${rowY[row]}px`,
             left: `${colX[col * xc.vals + val]}px`,
